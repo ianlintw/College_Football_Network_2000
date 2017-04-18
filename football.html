@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+body{
+  position: relative;
+  width: 1150px;
+}
+
+.circle {
+  stroke: #fff;
+  stroke-width: 1px;
+}
+
+.link {
+  stroke: #BBBBBB;
+}
+
+.node:not(:hover) .nodetext {
+  display: none;
+}
+
+.nodetext {
+  fill: #222222;
+  font-family: Helvetica, Arial;
+  font-size: 12px;
+  stroke: #FFFFFF;
+  stroke-width: .3px;
+}
+
+.large-text {
+  font-size: 18px;
+}
+
+.dim {
+  fill-opacity: .1;
+  stroke-opacity: .1;
+}
+
+aside {
+  position: absolute;
+  right: 0px;
+  font-family: Helvetica, Arial;
+  font-size: 14px;
+}
+
+aside img, aside p{
+  width: 280px;
+}
+
+h1 {
+  font-family: "PT Sans",sans-serif;
+  font-weight: 300;
+  letter-spacing: -2px;
+}
+
+#west {
+  color: #018571;  
+}
+
+#mid-west {
+  color: #80cdc1;  
+}
+
+#north-east {
+  color: #fdae61;  
+}
+
+#south-west {
+  color: #dfc27d;  
+}
+
+#south-east {
+  color: #a6611a;  
+}
+
+svg {
+  position: absolute;
+  top: 0px;
+  left: -100px;
+}
+
+</style>
+<body>
+  <h1>American College Football Game Network of Division IA in 2000</h1>
+  <aside>
+    <img src="US_Map.png"/>
+    <p>This visualization represents how American College Football games happened between teams of Division IA in 2000.  The nodes in the graph represent individual college teams. and the edge between two nodes represents the game in which two college teams reprented by the two nodes were against each other.  The nodes are colored according to five different regins of the United States: <span id="west">West</span>, <span id="mid-west">Mid-west</span>, <span id="north-east">North East</span>, <span id="south-west">South West</span>, and <span id="south-east">South East</span>.  If you mouseover a node, you can see nodes and edges connected to the node get highlighted, and the names of the college teams will also be shown. And the position of the nodes are decided by <a href="https://github.com/mbostock/d3/wiki/Force-Layout">Force-Directed Layout implemented by D3.js.</a></p>
+    <p>Reference: <a href="http://www.pnas.org/content/99/12/7821.full.pdf">M. Girvan and M. E. J. Newman, Proc. Natl. Acad. Sci. USA 99, 7821-7826 (2002)</a></p>
+    <p>Data: <a href="http://www-personal.umich.edu/~mejn/netdata/football.zip">Download</a></p>
+  </aside>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+<script>
+
+var width = 1000,
+    height = 900;
+
+var colors = ["#018571", "#80cdc1", "#fdae61", "#dfc27d", "#a6611a"];
+
+var force = d3.layout.force()
+    .charge(-1500)
+    .linkDistance(50)
+    .size([width, height]);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+d3.text("football.csv", function(text){
+  var graph = {"nodes": [], "links": []};
+  var csv = d3.csv.parse(text, function(d){
+    return {
+      "from": +d.FromNodeId,
+      "to": +d.ToNodeId
+    };
+  });
+
+  csv.forEach(function(row, i){
+    graph.links.push({"source": row.from, "target": row.to, "value": 1});
+    if(graph.nodes[row.from] == null){
+      graph.nodes.push({"name": row.from});
+    }
+  });
+
+  force
+      .nodes(graph.nodes)
+      .links(graph.links)
+      .start();
+
+  var link = svg.selectAll(".link")
+      .data(graph.links)
+    .enter().append("line")
+      .attr("class", "link")
+      .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+
+  var texts;
+  var node = svg.selectAll(".node")
+      .data(graph.nodes)
+    .enter().append("g")
+      .attr("class", "node")
+      .on("mouseover", function(d){
+        var highlight_nodes = [];
+        link.classed("dim", function(l){
+          if (d.name == l.source.name || d.name == l.target.name){
+            if(highlight_nodes.indexOf(l.source.name) < 0){
+              highlight_nodes.push(l.source.name);
+            }
+            if(highlight_nodes.indexOf(l.target.name) < 0){
+              highlight_nodes.push(l.target.name);
+            }
+            return false;
+          }
+          else{
+            return true;
+          }
+        });
+        circles.attr("r", function(c){
+          if (highlight_nodes.indexOf(c.name) >= 0){
+            if(d.name == c.name){
+              return 12;
+            }
+            else{
+              return 8;
+            }
+          }
+          else{
+            return 6;
+          }
+        });
+        circles.classed("dim", function(c){
+          if (highlight_nodes.indexOf(c.name) >= 0){
+            return false;
+          }
+          else{
+            return true;
+          }
+        });
+        texts.style("display", function(t){
+          if (highlight_nodes.indexOf(t.name) >= 0){
+            return "block";
+          }
+          else{
+            return "none";
+          }
+        });
+        texts.classed("large-text", function(t){
+          if (t.name == d.name){
+            return true;
+          }
+          else{
+            return false;
+          }
+        });
+      })
+      .on("mouseout", function(d){
+        link.classed("dim", false);
+        circles.classed("dim", false);
+        circles.attr("r", 6);
+        texts.classed("large-text", false);
+        texts.style("display", "none");
+      });
+
+  var circles = node.append("circle")
+      .attr("class", "circle")
+      .attr("r", 6);
+
+  d3.text("colleges.csv", function(text){
+    var colleges = d3.csv.parse(text, function(d){
+      return {
+        "college": d.College,
+        "division": +d.Division
+      };
+    });
+    texts = node.append("text")
+        .attr("class", "nodetext")
+        .attr("dx", 10)
+        .attr("dy", "-0.35em")
+        .text(function(d) { 
+          return colleges[d.name - 1].college;
+        });
+
+    circles.style("fill", function(d){
+      return colors[colleges[d.name - 1].division];
+    });
+
+    force.on("tick", function() {
+      link.attr("x1", function(d) { return d.source.x; })
+          .attr("y1", function(d) { return d.source.y; })
+          .attr("x2", function(d) { return d.target.x; })
+          .attr("y2", function(d) { return d.target.y; });
+
+      texts.attr("x", function(d) { return d.x; })
+          .attr("y", function(d) { return d.y; });
+      circles.attr("cx", function(d) { return d.x; })
+          .attr("cy", function(d) { return d.y; });
+    });
+  });
+});
+
+</script>
